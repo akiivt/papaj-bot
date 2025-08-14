@@ -12,9 +12,9 @@ import {
 } from "@discordjs/voice";
 import { resolve } from "node:path";
 import { createReadStream } from "node:fs";
-import { config } from "./config.ts";
-import { eventEmitter, EventNames } from "./eventEmitter.ts";
-import { job } from "./cronJob.ts";
+import { config } from "./config";
+import { eventEmitter, EventNames } from "./eventEmitter";
+import { job } from "./cronJob";
 
 export class VoiceService {
   player: AudioPlayer;

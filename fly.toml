@@ -1,0 +1,17 @@
+app = 'papaj-bot'
+primary_region = 'waw'
+kill_signal = 'SIGINT'
+kill_timeout = 5
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[process]
+  app = "node dist/index.js"
+
+[[vm]]
+  memory = '256MB'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[checks]

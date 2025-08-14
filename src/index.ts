@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits } from "discord.js";
-import { VoiceService } from "./voiceService.ts";
-import { config } from "./config.ts";
+import { VoiceService } from "./voiceService";
+import { config } from "./config";
 
 async function main() {
   const discordToken = config.DISCORD_TOKEN;
