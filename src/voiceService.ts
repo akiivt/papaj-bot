@@ -8,6 +8,7 @@ import {
   demuxProbe,
   entersState,
   joinVoiceChannel,
+  VoiceConnection,
   VoiceConnectionStatus,
 } from "@discordjs/voice";
 import { resolve } from "node:path";
@@ -20,6 +21,7 @@ export class VoiceService {
   player: AudioPlayer;
   client: Client;
   audioResource: AudioResource | null = null;
+  activeConnection: VoiceConnection | null = null;
 
   private async joinVoice() {
     const channelId = config.VOICE_CHANNEL_ID;
@@ -62,6 +64,7 @@ export class VoiceService {
       await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
       console.log("Connection ready");
 
+      this.activeConnection = connection;
       return connection;
     } catch (error) {
       connection.destroy();
@@ -97,6 +100,12 @@ export class VoiceService {
 
       await this.joinVoice();
       await this.playAudio();
+
+      setTimeout(() => {
+        console.log("Stopping audio");
+        this.player.stop();
+        this.activeConnection?.destroy();
+      }, 60 * 1000);
     });
   }
 }
