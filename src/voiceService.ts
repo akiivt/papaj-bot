@@ -1,89 +1,102 @@
 import { Client, VoiceBasedChannel } from "discord.js";
 import {
-  AudioPlayer, AudioPlayerStatus,
+  AudioPlayer,
+  AudioPlayerStatus,
   AudioResource,
+  createAudioPlayer,
   createAudioResource,
-  demuxProbe, entersState, joinVoiceChannel, VoiceConnectionStatus,
+  demuxProbe,
+  entersState,
+  joinVoiceChannel,
+  VoiceConnectionStatus,
 } from "@discordjs/voice";
 import { resolve } from "node:path";
 import { createReadStream } from "node:fs";
 import { config } from "./config.ts";
 import { eventEmitter, EventNames } from "./eventEmitter.ts";
+import { job } from "./cronJob.ts";
 
-export async function selectAudio(filePath: string) {
-  const abs = resolve(filePath);
-  const stream = createReadStream(abs);
-  const { stream: probed, type } = await demuxProbe(stream);
+export class VoiceService {
+  player: AudioPlayer;
+  client: Client;
+  audioResource: AudioResource | null = null;
 
-  return createAudioResource(probed, {
-    inputType: type,
-  });
-}
+  private async joinVoice() {
+    const channelId = config.VOICE_CHANNEL_ID;
+    const voiceChannel = await this.client.channels.fetch(channelId);
+    if (!voiceChannel || !voiceChannel.isVoiceBased()) {
+      throw new Error("Voice channel not found");
+    }
 
-async function playAudio(
-  player: AudioPlayer,
-  resource: AudioResource,
-): Promise<AudioPlayer> {
-  player.play(resource);
+    try {
+      const connection = await this.connectToChannel(voiceChannel);
 
-  return entersState(player, AudioPlayerStatus.Playing, 5_000);
-}
-
-async function connectToChannel(channel: VoiceBasedChannel) {
-  const connection = joinVoiceChannel({
-    channelId: channel.id,
-    guildId: channel.guild.id,
-    adapterCreator: channel.guild.voiceAdapterCreator,
-    // selfDeaf: false,
-  });
-
-  try {
-    await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
-
-    console.log("Connection ready");
-
-    return connection;
-  } catch (error) {
-    connection.destroy();
-
-    throw error;
-  }
-}
-
-async function joinVoice(
-  client: Client,
-  player: AudioPlayer,
-) {
-  const channelId = config.VOICE_CHANNEL_ID;
-  const voiceChannel = await client.channels.fetch(channelId);
-  if (!voiceChannel || !voiceChannel.isVoiceBased()) {
-    throw new Error("Voice channel not found");
+      connection.subscribe(this.player);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
-  try {
-    const connection = await connectToChannel(voiceChannel);
+  private async playAudio() {
+    if (!this.audioResource) {
+      throw new Error("Audio resource not found");
+    }
 
-    connection.subscribe(player);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-export async function setupVoice(client: Client, player: AudioPlayer) {
-  let resource: AudioResource | null = null;
-  try {
-    resource = await selectAudio("audio.ogg");
-
-    console.log("Ready to play audio");
-  } catch (error) {
-    console.error(error);
+    this.player.play(this.audioResource);
+    return entersState(this.player, AudioPlayerStatus.Playing, 5_000);
   }
 
-  if (!resource) return;
-  eventEmitter.on(EventNames.PLAY_BARKA, async () => {
-    console.log("Playing audio");
-    
-    await joinVoice(client, player);
-    await playAudio(player, resource);
-  });
+  constructor(client: Client) {
+    this.player = createAudioPlayer();
+    this.client = client;
+  }
+
+  public async connectToChannel(channel: VoiceBasedChannel) {
+    const connection = joinVoiceChannel({
+      channelId: channel.id,
+      guildId: channel.guild.id,
+      adapterCreator: channel.guild.voiceAdapterCreator,
+    });
+
+    try {
+      await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+      console.log("Connection ready");
+
+      return connection;
+    } catch (error) {
+      connection.destroy();
+
+      throw error;
+    }
+  }
+
+  public async selectAudio(filePath: string) {
+    try {
+      const abs = resolve(filePath);
+      const stream = createReadStream(abs);
+      const { stream: probed, type } = await demuxProbe(stream);
+
+      this.audioResource = createAudioResource(probed, {
+        inputType: type,
+      });
+      console.log("Selected audio: ", filePath);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  public async setup() {
+    if (!this.audioResource) {
+      throw new Error("Audio resource not found");
+    }
+
+    job.start();
+
+    eventEmitter.on(EventNames.PLAY_BARKA, async () => {
+      console.log("Playing audio");
+
+      await this.joinVoice();
+      await this.playAudio();
+    });
+  }
 }

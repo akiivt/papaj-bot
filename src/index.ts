@@ -1,8 +1,6 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits } from "discord.js";
-import { createAudioPlayer } from "@discordjs/voice";
-import { job } from "./cronJob.ts";
-import { setupVoice } from "./voiceService.ts";
+import { VoiceService } from "./voiceService.ts";
 
 async function main() {
   const discordToken = process.env.TOKEN;
@@ -13,13 +11,14 @@ async function main() {
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
   });
-  const player = createAudioPlayer();
+
+  const voiceService = new VoiceService(client);
+  await voiceService.selectAudio("../audio/barka.ogg");
 
   client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Ready! Logged in as ${readyClient.user.tag}`);
 
-    await setupVoice(client, player);
-    job.start();
+    await voiceService.setup();
   });
 
   await client.login(discordToken);

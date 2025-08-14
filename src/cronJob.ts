@@ -4,7 +4,7 @@ import { config } from "./config.ts";
 
 export const job = new CronJob(
   config.CRON_TIME,
-  async () => {
+  () => {
     eventEmitter.emit(EventNames.PLAY_BARKA);
   },
   null,
