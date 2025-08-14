@@ -1,12 +1,10 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { VoiceService } from "./voiceService.ts";
+import { config } from "./config.ts";
 
 async function main() {
-  const discordToken = process.env.TOKEN;
-  if (!discordToken) {
-    throw new Error("Discord token not found");
-  }
+  const discordToken = config.DISCORD_TOKEN;
 
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
